@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="es-DO">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traspaso — Compra y venta de negocios en República Dominicana</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:        #16213E;
+    --ink-soft:   #3A4568;
+    --paper:      #F3EFE4;
+    --card:       #FCFAF3;
+    --green:      #1F6F54;
+    --green-dark: #154F3C;
+    --rust:       #9A3324;
+    --slate:      #5B6178;
+    --line:       #DAD2BC;
+    --line-soft:  #E7E1D1;
+    --radius: 6px;
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    line-height:1.5;
+  }
+  h1,h2,h3,h4{
+    font-family:'Fraunces', serif;
+    color:var(--ink);
+    margin:0 0 .4em;
+    font-weight:600;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  a{ color:inherit; }
+  button{ font-family:inherit; cursor:pointer; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 24px; }
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px 22px; border-radius:var(--radius); border:1px solid transparent;
+    font-weight:600; font-size:15px; text-decoration:none; transition:background .15s ease, border-color .15s ease;
+  }
+  .btn-primary{ background:var(--green); color:#fff; }
+  .btn-primary:hover{ background:var(--green-dark); }
+  .btn-ghost{ background:transparent; color:var(--ink); border-color:var(--line); }
+  .btn-ghost:hover{ border-color:var(--ink); }
+  .btn-outline{ background:transparent; color:var(--green); border-color:var(--green); }
+  .btn-outline:hover{ background:var(--green); color:#fff; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* ---------- Nav ---------- */
+  header.nav{
+    position:sticky; top:0; z-index:40;
+    background:rgba(243,239,228,.92); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{ display:flex; align-items:center; justify-content:space-between; padding:14px 24px; }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Fraunces', serif; font-weight:700; font-size:22px; color:var(--ink); text-decoration:none; }
+  .logo-seal{ width:30px; height:30px; flex:none; }
+  .nav-links{ display:flex; align-items:center; gap:28px; }
+  .nav-links a.navlink{ font-size:15px; font-weight:500; text-decoration:none; color:var(--ink-soft); }
+  .nav-links a.navlink:hover{ color:var(--ink); }
+  @media (max-width:760px){
+    .nav-links a.navlink.hide-mobile{ display:none; }
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{ padding:56px 0 40px; position:relative; overflow:hidden; }
+  .hero-grid{ display:grid; grid-template-columns:1.3fr .7fr; gap:40px; align-items:start; }
+  @media (max-width:900px){ .hero-grid{ grid-template-columns:1fr; } .hero-stamp-col{ display:none; } }
+  .eyebrow{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--rust); border:1px dashed var(--rust); padding:5px 12px; border-radius:var(--radius);
+    margin-bottom:18px;
+  }
+  .hero h1{ font-size:44px; line-height:1.08; max-width:640px; }
+  .hero p.lead{ color:var(--ink-soft); font-size:17px; max-width:520px; margin:16px 0 28px; }
+  .stamp-wrap{ display:flex; justify-content:center; padding-top:10px; }
+
+  /* Search panel */
+  .search-panel{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px; margin-top:8px;
+  }
+  .search-row{ display:grid; grid-template-columns:1.4fr 1fr 1fr .9fr auto; gap:10px; }
+  @media (max-width:900px){ .search-row{ grid-template-columns:1fr 1fr; } }
+  .field label{ display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); margin-bottom:6px; }
+  input, select, textarea{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius);
+    background:#fff; color:var(--ink); font-family:inherit; font-size:14px;
+  }
+  input:focus, select:focus, textarea:focus{ outline:2px solid var(--green); outline-offset:1px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .chip{
+    padding:7px 14px; border-radius:999px; border:1px solid var(--line); background:#fff;
+    font-size:13px; font-weight:500; color:var(--ink-soft); display:flex; align-items:center; gap:6px;
+  }
+  .chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .chip svg{ width:16px; height:16px; }
+
+  /* ---------- Sections ---------- */
+  section{ padding:56px 0; }
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:28px; gap:16px; flex-wrap:wrap; }
+  .section-head h2{ font-size:30px; margin:0; }
+  .section-sub{ color:var(--slate); font-size:14px; }
+
+  .grid-listings{ display:grid; grid-template-columns:repeat(3, 1fr); gap:22px; }
+  @media (max-width:900px){ .grid-listings{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:620px){ .grid-listings{ grid-template-columns:1fr; } }
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+    display:flex; flex-direction:column; transition:border-color .15s ease;
+  }
+  .card:hover{ border-color:var(--ink-soft); }
+  .card-media{
+    height:170px; background:var(--paper); display:flex; align-items:center; justify-content:center;
+    position:relative; border-bottom:1px solid var(--line-soft);
+  }
+  .card-media img{ width:100%; height:100%; object-fit:cover; }
+  .card-media svg{ width:64px; height:64px; color:var(--ink-soft); opacity:.5; }
+  .badge-plan{
+    position:absolute; top:10px; left:10px; font-size:11px; font-weight:700; letter-spacing:.04em;
+    text-transform:uppercase; padding:4px 9px; border-radius:999px; background:var(--rust); color:#fff;
+  }
+  .card-body{ padding:16px 18px 18px; flex:1; display:flex; flex-direction:column; }
+  .card-body h3{ font-size:19px; margin-bottom:4px; }
+  .card-meta{ font-size:13px; color:var(--slate); margin-bottom:10px; }
+  .card-desc{ font-size:13.5px; color:var(--ink-soft); flex:1; margin-bottom:14px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .card-price-row{ display:flex; align-items:center; justify-content:space-between; border-top:1px dashed var(--line); padding-top:12px; }
+  .card-price{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:16px; color:var(--green-dark); }
+  .card-link{ font-size:13px; font-weight:600; color:var(--ink); text-decoration:underline; background:none; border:none; padding:0; }
+
+  .empty-state{ text-align:center; padding:60px 20px; color:var(--slate); border:1px dashed var(--line); border-radius:var(--radius); }
+
+  /* Como funciona */
+  .steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:26px; }
+  @media (max-width:760px){ .steps{ grid-template-columns:1fr; } }
+  .step{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:24px; }
+  .step-num{
+    width:34px; height:34px; border-radius:50%; border:1px solid var(--rust); color:var(--rust);
+    font-family:'IBM Plex Mono', monospace; font-weight:600; display:flex; align-items:center; justify-content:center;
+    margin-bottom:14px; font-size:15px;
+  }
+  .step h3{ font-size:18px; }
+  .step p{ color:var(--ink-soft); font-size:14px; margin:0; }
+
+  /* CTA banner */
+  .cta-banner{
+    background:var(--ink); color:#fff; border-radius:var(--radius); padding:44px; text-align:center;
+    background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.03) 0 2px, transparent 2px 14px);
+  }
+  .cta-banner h2{ color:#fff; font-size:28px; }
+  .cta-banner p{ color:#C9CEE0; margin:0 0 22px; }
+
+  footer{ border-top:1px solid var(--line); padding:36px 0; margin-top:20px; }
+  .footer-inner{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; }
+  .footer-inner p{ color:var(--slate); font-size:13px; margin:0; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(22,33,62,.55); display:none; align-items:flex-start; justify-content:center;
+    padding:40px 16px; overflow-y:auto; z-index:100;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    background:var(--card); border-radius:var(--radius); border:1px solid var(--line); width:100%; max-width:680px;
+    padding:0; margin-bottom:40px;
+  }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:20px 26px; border-bottom:1px solid var(--line); }
+  .modal-header h2{ font-size:22px; margin:0; }
+  .modal-close{ background:none; border:none; font-size:22px; color:var(--slate); line-height:1; }
+  .modal-body{ padding:26px; }
+  .modal-footer{ display:flex; justify-content:space-between; padding:18px 26px; border-top:1px solid var(--line); }
+
+  /* wizard */
+  .wizard-progress{ display:flex; gap:6px; margin-bottom:24px; }
+  .wizard-progress span{ flex:1; height:4px; border-radius:2px; background:var(--line); }
+  .wizard-progress span.done{ background:var(--green); }
+  .wizard-progress span.current{ background:var(--rust); }
+  .field-group{ margin-bottom:16px; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:520px){ .field-row{ grid-template-columns:1fr; } }
+  .error-text{ color:var(--rust); font-size:12.5px; margin-top:4px; display:none; }
+  .field-group.has-error input, .field-group.has-error select, .field-group.has-error textarea{ border-color:var(--rust); }
+  .field-group.has-error .error-text{ display:block; }
+  .checkbox-list{ display:flex; flex-direction:column; gap:8px; }
+  .checkbox-list label{ display:flex; align-items:center; gap:8px; font-size:14px; font-weight:400; text-transform:none; }
+  .checkbox-list input{ width:auto; }
+  .radio-plan{ border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:10px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
+  .radio-plan.selected{ border-color:var(--green); background:#EEF6F2; }
+  .radio-plan .plan-name{ font-weight:600; }
+  .radio-plan .plan-price{ font-family:'IBM Plex Mono', monospace; color:var(--green-dark); font-weight:600; }
+  .radio-plan .plan-desc{ font-size:12.5px; color:var(--slate); margin-top:2px; }
+
+  .photo-drop{
+    border:1px dashed var(--line); border-radius:var(--radius); padding:22px; text-align:center; color:var(--slate);
+    font-size:13.5px; cursor:pointer; margin-bottom:14px;
+  }
+  .photo-drop:hover{ border-color:var(--ink-soft); }
+  .photo-thumbs{ display:flex; gap:10px; flex-wrap:wrap; }
+  .photo-thumb{ position:relative; width:84px; height:84px; border-radius:var(--radius); overflow:hidden; border:1px solid var(--line); }
+  .photo-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .photo-thumb button{
+    position:absolute; top:2px; right:2px; background:rgba(22,33,62,.75); color:#fff; border:none;
+    width:20px; height:20px; border-radius:50%; font-size:12px; line-height:1;
+  }
+
+  /* receipt */
+  .receipt{ border:1px dashed var(--line); border-radius:var(--radius); padding:20px; background:#fff; }
+  .receipt-row{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line-soft); font-size:14px; }
+  .receipt-row:last-child{ border-bottom:none; }
+  .receipt-row .label{ color:var(--slate); }
+  .receipt-row .value{ font-family:'IBM Plex Mono', monospace; font-weight:500; text-align:right; }
+  .receipt-total{ margin-top:10px; padding-top:12px; border-top:2px solid var(--ink); display:flex; justify-content:space-between; font-weight:700; }
+  .receipt-total .value{ font-family:'IBM Plex Mono', monospace; color:var(--green-dark); font-size:18px; }
+
+  /* detail modal */
+  .detail-gallery{ background:var(--paper); border-radius:var(--radius); overflow:hidden; margin-bottom:12px; border:1px solid var(--line-soft); }
+  .detail-gallery .main-img{ height:320px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .detail-gallery .main-img img{ width:100%; height:100%; object-fit:cover; }
+  .detail-gallery .main-img svg{ width:100px; height:100px; color:var(--ink-soft); opacity:.4; }
+  .detail-thumbs{ display:flex; gap:8px; padding:10px; }
+  .detail-thumbs img{ width:64px; height:64px; object-fit:cover; border-radius:4px; cursor:pointer; border:2px solid transparent; }
+  .detail-thumbs img.active{ border-color:var(--green); }
+  .detail-stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:18px 0; }
+  .stat-box{ background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; }
+  .stat-box .k{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); margin-bottom:4px; }
+  .stat-box .v{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:16px; color:var(--ink); }
+  .contact-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff;
+    padding:12px 22px; border-radius:var(--radius); font-size:14px; z-index:200; opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<header class="nav">
+  <div class="nav-inner wrap">
+    <a href="#" class="logo">
+      <svg class="logo-seal" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="21" stroke="#9A3324" stroke-width="2" stroke-dasharray="3 3"/>
+        <path d="M16 24l6 6 12-13" stroke="#9A3324" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Traspaso
+    </a>
+    <nav class="nav-links">
+      <a href="#como-funciona" class="navlink hide-mobile">Cómo funciona</a>
+      <a href="#negocios" class="navlink hide-mobile">Negocios en venta</a>
+      <button class="btn btn-primary" onclick="openPublishModal()">Publicar mi negocio</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Documentos en regla · Traspaso legal</span>
+      <h1>Compra o vende tu negocio con la confianza del papel firmado.</h1>
+      <p class="lead">El primer marketplace dominicano para traspasar colmados, restaurantes, gimnasios, salones, lavanderías y cualquier otro negocio pequeño — local, inventario y hasta el contrato de alquiler, todo en un solo anuncio.</p>
+
+      <div class="search-panel">
+        <div class="search-row">
+          <div class="field">
+            <label>Buscar</label>
+            <input type="text" id="f-text" placeholder="Nombre, zona o descripción">
+          </div>
+          <div class="field">
+            <label>Categoría</label>
+            <select id="f-categoria">
+              <option value="">Todas</option>
+              <option value="colmados">Colmados</option>
+              <option value="restaurantes">Restaurantes</option>
+              <option value="gimnasios">Gimnasios</option>
+              <option value="salones">Salones</option>
+              <option value="lavanderias">Lavanderías</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Provincia</label>
+            <select id="f-provincia">
+              <option value="">Todas</option>
+              <option value="Distrito Nacional">Distrito Nacional</option>
+              <option value="Santo Domingo">Santo Domingo</option>
+              <option value="Santiago">Santiago</option>
+              <option value="__otra">Otra provincia</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Precio</label>
+            <select id="f-precio">
+              <option value="">Cualquiera</option>
+              <option value="0-500000">Hasta RD$500K</option>
+              <option value="500000-1000000">RD$500K–1M</option>
+              <option value="1000000-3000000">RD$1M–3M</option>
+              <option value="3000000-999999999">RD$3M+</option>
+            </select>
+          </div>
+          <div class="field" style="align-self:end;">
+            <label style="visibility:hidden;">.</label>
+            <button class="btn btn-primary" style="width:100%;" onclick="applyFilters()">Buscar</button>
+          </div>
+        </div>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <div class="hero-stamp-col stamp-wrap">
+      <svg width="260" height="260" viewBox="0 0 260 260">
+        <circle cx="130" cy="130" r="118" fill="none" stroke="#9A3324" stroke-width="2" stroke-dasharray="4 4"/>
+        <circle cx="130" cy="130" r="96" fill="none" stroke="#9A3324" stroke-width="1.5"/>
+        <path id="sealTop" d="M 40 130 A 90 90 0 0 1 220 130" fill="none"/>
+        <path id="sealBottom" d="M 220 140 A 90 90 0 0 1 40 140" fill="none"/>
+        <text font-family="IBM Plex Mono, monospace" font-size="13" letter-spacing="3" fill="#9A3324">
+          <textPath href="#sealTop" startOffset="50%" text-anchor="middle">TRASPASO VERIFICADO</textPath>
+        </text>
+        <text font-family="IBM Plex Mono, monospace" font-size="13" letter-spacing="3" fill="#9A3324">
+          <textPath href="#sealBottom" startOffset="50%" text-anchor="middle">DOCUMENTOS EN REGLA</textPath>
+        </text>
+        <path d="M95 130l22 22 46-50" stroke="#9A3324" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LISTADOS ============ -->
+<section id="negocios">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <h2>Negocios destacados</h2>
+        <div class="section-sub" id="results-count"></div>
+      </div>
+    </div>
+    <div class="grid-listings" id="listing-grid"></div>
+  </div>
+</section>
+
+<!-- ============ COMO FUNCIONA ============ -->
+<section id="como-funciona">
+  <div class="wrap">
+    <div class="section-head"><h2>Cómo funciona</h2></div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Publica tu negocio</h3>
+        <p>Completa el formulario con las cifras, fotos y motivo de venta. Tú decides qué se incluye en el traspaso.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Recibe interesados</h3>
+        <p>Los compradores te contactan directo por WhatsApp, llamada o correo — sin intermediarios ni comisión de venta.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Cierra el traspaso</h3>
+        <p>Negocia y formaliza el traspaso — local, inventario, equipos, permisos y personal — como en la práctica dominicana de siempre.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA BANNER ============ -->
+<section>
+  <div class="wrap">
+    <div class="cta-banner">
+      <h2>¿Piensas vender tu negocio?</h2>
+      <p>Publica en minutos por RD$4,000 (Básico) o RD$7,000 (Destacado) — 2 meses de exposición.</p>
+      <button class="btn btn-primary" onclick="openPublishModal()">Publicar mi negocio</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap footer-inner">
+    <p>© 2026 Traspaso — Marketplace de negocios en la República Dominicana.</p>
+    <p>Hecho en RD 🇩🇴</p>
+  </div>
+</footer>
+
+<!-- ============ PUBLISH MODAL ============ -->
+<div class="modal-overlay" id="publish-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Publicar mi negocio</h2>
+      <button class="modal-close" onclick="closePublishModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="wizard-progress" id="wizard-progress"></div>
+      <div id="wizard-step-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="wizard-back" onclick="wizardBack()">Atrás</button>
+      <button class="btn btn-primary" id="wizard-next" onclick="wizardNext()">Siguiente</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DETAIL MODAL ============ -->
+<div class="modal-overlay" id="detail-overlay">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-header">
+      <h2 id="detail-title">Negocio</h2>
+      <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   TRASPASO — reference front-end implementation
+   NOTE ON PERSISTENCE: the original prototype used Claude's artifact-only
+   `window.storage` API, which does not exist outside a Claude.ai artifact
+   viewer. This build swaps it for localStorage as a working stand-in so the
+   page actually persists data as a normal static site — it is still a
+   placeholder for the real backend (Postgres/Supabase + API) described in
+   the project README, not a production data store (no sharing across
+   devices/users, no auth, no server-side validation).
+   ========================================================================= */
+
+const STORAGE_KEY = 'traspaso_listings_v1';
+
+const CATEGORY_LABELS = {
+  colmados: 'Colmado',
+  restaurantes: 'Restaurante',
+  gimnasios: 'Gimnasio',
+  salones: 'Salón de belleza',
+  lavanderias: 'Lavandería',
+  otro: 'Otro'
+};
+
+const ICONS = {
+  colmados: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 18l2-9h28l2 9"/><path d="M8 18v20a2 2 0 0 0 2 2h28a2 2 0 0 0 2-2V18"/><path d="M8 18h32"/><path d="M18 40v-9h12v9"/></svg>`,
+  restaurantes: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6v16M11 6v10a3 3 0 0 0 6 0V6M14 22v20"/><path d="M34 6c-4 0-6 4-6 9s2 7 6 7 6-2 6-7-2-9-6-9z"/><path d="M34 22v20"/></svg>`,
+  gimnasios: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="20" width="6" height="8" rx="1"/><rect x="38" y="20" width="6" height="8" rx="1"/><path d="M10 24h6M32 24h6"/><rect x="16" y="17" width="4" height="14" rx="1"/><rect x="28" y="17" width="4" height="14" rx="1"/><path d="M20 24h8"/></svg>`,
+  salones: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="14" r="5"/><circle cx="14" cy="34" r="5"/><path d="M40 10L11 39M18 18l22 22"/></svg>`,
+  lavanderias: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="6" width="34" height="36" rx="3"/><circle cx="24" cy="26" r="10"/><circle cx="24" cy="26" r="5"/><circle cx="13" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>`,
+  otro: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="12" width="36" height="26" rx="3"/><path d="M6 20h36"/><path d="M18 12v-3a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3"/></svg>`
+};
+
+const SAMPLE_LISTINGS = [
+  {
+    id: 'sample-1',
+    nombre: 'Colmado Los Hermanos',
+    categoria: 'colmados',
+    provincia: 'Santo Domingo',
+    zona: 'Los Mina',
+    anos: '8',
+    empleados: '3',
+    descripcion: 'Colmado establecido hace 8 años en esquina de alto flujo peatonal. Clientela fija, buen margen en bebidas y víveres. Se incluye congelador industrial y anaqueles.',
+    photos: [],
+    facturacion: '180000',
+    precio: '1200000',
+    motivo: 'Cambio de ciudad por motivos familiares',
+    incluye: ['Inventario', 'Equipos', 'Contrato de alquiler vigente'],
+    contactoNombre: 'Ramón Peña',
+    telefono: '8095550142',
+    email: 'ramon.pena@example.com',
+    pref: 'WhatsApp',
+    plan: 'destacado',
+    publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 3
+  },
+  {
+    id: 'sample-2',
+    nombre: 'Gimnasio PowerFit',
+    categoria: 'gimnasios',
+    provincia: 'Santiago',
+    zona: 'Los Jardines',
+    anos: '5',
+    empleados: '6',
+    descripcion: 'Gimnasio full-equipment de 5 años, cartera activa de más de 200 socios mensuales. Incluye máquinas de cardio y pesas, área de spinning y oficina administrativa.',
+    photos: [],
+    facturacion: '320000',
+    precio: '2800000',
+    motivo: 'Nuevo proyecto fuera del país',
+    incluye: ['Equipos', 'Permisos y licencias', 'Personal capacitado'],
+    contactoNombre: 'Yolanda Ferreira',
+    telefono: '8295550198',
+    email: 'yolanda.ferreira@example.com',
+    pref: 'Llamada',
+    plan: 'basico',
+    publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 7
+  },
+  {
+    id: 'sample-3',
+    nombre: 'Salón Bella Imagen',
+    categoria: 'salones',
+    provincia: 'Distrito Nacional',
+    zona: 'Piantini',
+    anos: '12',
+    empleados: '4',
+    descripcion: 'Salón de belleza con 12 años de trayectoria en zona de alto poder adquisitivo. Clientela leal y personal capacitado que desea continuar tras el traspaso.',
+    photos: [],
+    facturacion: '150000',
+    precio: '950000',
+    motivo: 'Jubilación de la propietaria',
+    incluye: ['Inventario', 'Equipos', 'Personal capacitado'],
+    contactoNombre: 'Carmen Objío',
+    telefono: '8495550176',
+    email: 'carmen.objio@example.com',
+    pref: 'Correo',
+    plan: 'destacado',
+    publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 1
+  }
+];
+
+let allListings = [];
+let activeChip = '';
+
+function formatRD(n){
+  const num = Number(n) || 0;
+  return 'RD$' + num.toLocaleString('es-DO');
+}
+
+function loadPublishedListings(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){
+    console.warn('No se pudo leer listings guardados', e);
+    return [];
+  }
+}
+
+function saveListingToStorage(listing){
+  const published = loadPublishedListings();
+  published.push(listing);
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(published));
+  }catch(e){
+    console.warn('No se pudo guardar el listing', e);
+  }
+}
+
+function refreshListings(){
+  allListings = [...SAMPLE_LISTINGS, ...loadPublishedListings()]
+    .sort((a,b) => b.publishedAt - a.publishedAt);
+}
+
+/* ---------- Chips ---------- */
+function renderChips(){
+  const chipsEl = document.getElementById('chips');
+  const cats = Object.keys(CATEGORY_LABELS);
+  chipsEl.innerHTML = cats.map(c => `
+    <button class="chip ${activeChip===c ? 'active' : ''}" data-cat="${c}" onclick="toggleChip('${c}')">
+      ${ICONS[c]} ${CATEGORY_LABELS[c]}
+    </button>
+  `).join('');
+}
+
+function toggleChip(cat){
+  activeChip = activeChip === cat ? '' : cat;
+  document.getElementById('f-categoria').value = activeChip;
+  syncChips();
+  applyFilters();
+}
+
+function syncChips(){
+  document.querySelectorAll('.chip').forEach(el => {
+    el.classList.toggle('active', el.dataset.cat === activeChip);
+  });
+}
+
+/* ---------- Filters ---------- */
+function applyFilters(){
+  const text = document.getElementById('f-text').value.trim().toLowerCase();
+  const categoria = document.getElementById('f-categoria').value;
+  const provinciaSel = document.getElementById('f-provincia').value;
+  const precioRange = document.getElementById('f-precio').value;
+
+  activeChip = categoria;
+  syncChips();
+
+  let filtered = allListings.filter(l => {
+    if (categoria && l.categoria !== categoria) return false;
+    if (provinciaSel && provinciaSel !== '__otra' && l.provincia !== provinciaSel) return false;
+    if (precioRange){
+      const [min, max] = precioRange.split('-').map(Number);
+      const p = Number(l.precio) || 0;
+      if (p < min || p > max) return false;
+    }
+    if (text){
+      const hay = `${l.nombre} ${l.zona} ${l.descripcion}`.toLowerCase();
+      if (!hay.includes(text)) return false;
+    }
+    return true;
+  });
+
+  renderGrid(filtered);
+}
+
+/* ---------- Card rendering ---------- */
+function addListingCard(listing){
+  const cover = listing.photos && listing.photos.length
+    ? `<img src="${listing.photos[0]}" alt="${listing.nombre}">`
+    : ICONS[listing.categoria] || ICONS.otro;
+
+  const planBadge = listing.plan === 'destacado'
+    ? `<span class="badge-plan">Destacado</span>` : '';
+
+  return `
+    <div class="card">
+      <div class="card-media">
+        ${planBadge}
+        ${cover}
+      </div>
+      <div class="card-body">
+        <h3>${listing.nombre}</h3>
+        <div class="card-meta">${CATEGORY_LABELS[listing.categoria] || 'Otro'} · ${listing.provincia}${listing.zona ? ', ' + listing.zona : ''}</div>
+        <div class="card-desc">${listing.descripcion || ''}</div>
+        <div class="card-price-row">
+          <span class="card-price">${formatRD(listing.precio)}</span>
+          <button class="card-link" onclick="openDetailModal('${listing.id}')">Ver detalles</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderGrid(listings){
+  const grid = document.getElementById('listing-grid');
+  const count = document.getElementById('results-count');
+  count.textContent = `${listings.length} negocio${listings.length === 1 ? '' : 's'} encontrado${listings.length === 1 ? '' : 's'}`;
+
+  if (!listings.length){
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No encontramos negocios con esos filtros. Intenta ampliar la búsqueda.</div>`;
+    return;
+  }
+  grid.innerHTML = listings.map(addListingCard).join('');
+}
+
+/* ---------- Detail modal ---------- */
+let currentDetailPhotoIndex = 0;
+
+function renderDetail(listing){
+  const hasPhotos = listing.photos && listing.photos.length;
+  currentDetailPhotoIndex = 0;
+
+  const mainImg = hasPhotos
+    ? `<img id="detail-main-img" src="${listing.photos[0]}" alt="${listing.nombre}">`
+    : `<div id="detail-main-img">${ICONS[listing.categoria] || ICONS.otro}</div>`;
+
+  const thumbs = hasPhotos && listing.photos.length > 1
+    ? `<div class="detail-thumbs">${listing.photos.map((p,i) => `<img src="${p}" class="${i===0?'active':''}" onclick="switchDetailPhoto('${listing.id}', ${i})">`).join('')}</div>`
+    : '';
+
+  const incluyeList = (listing.incluye || []).map(i => `<li>${i}</li>`).join('') || '<li>No especificado</li>';
+
+  const phoneDigits = (listing.telefono || '').replace(/\D/g,'');
+  const waLink = `https://wa.me/1${phoneDigits}?text=${encodeURIComponent('Hola, vi tu negocio "' + listing.nombre + '" en Traspaso y me interesa.')}`;
+  const telLink = `tel:+1${phoneDigits}`;
+  const mailLink = `mailto:${listing.email}?subject=${encodeURIComponent('Interés en ' + listing.nombre + ' — Traspaso')}`;
+
+  document.getElementById('detail-title').textContent = listing.nombre;
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-gallery">
+      <div class="main-img">${mainImg}</div>
+      ${thumbs}
+    </div>
+    <div class="card-meta">${CATEGORY_LABELS[listing.categoria] || 'Otro'} · ${listing.provincia}${listing.zona ? ', ' + listing.zona : ''} · ${listing.anos || '?'} años operando</div>
+    <p style="color:var(--ink-soft); margin-top:12px;">${listing.descripcion || ''}</p>
+
+    <div class="detail-stats">
+      <div class="stat-box"><div class="k">Precio de venta</div><div class="v">${formatRD(listing.precio)}</div></div>
+      <div class="stat-box"><div class="k">Facturación mensual</div><div class="v">${formatRD(listing.facturacion)}</div></div>
+      <div class="stat-box"><div class="k">Empleados</div><div class="v">${listing.empleados || '—'}</div></div>
+    </div>
+
+    <h3 style="font-size:16px;">Motivo de venta</h3>
+    <p style="color:var(--ink-soft); font-size:14px;">${listing.motivo || 'No especificado'}</p>
+
+    <h3 style="font-size:16px;">Incluye en el traspaso</h3>
+    <ul style="color:var(--ink-soft); font-size:14px; margin:0 0 10px; padding-left:20px;">${incluyeList}</ul>
+
+    <div class="contact-actions">
+      <a class="btn btn-primary" href="${waLink}" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="btn btn-outline" href="${telLink}">Llamar</a>
+      <a class="btn btn-ghost" href="${mailLink}">Correo</a>
+    </div>
+  `;
+}
+
+function switchDetailPhoto(id, index){
+  const listing = allListings.find(l => l.id === id);
+  if (!listing) return;
+  currentDetailPhotoIndex = index;
+  document.getElementById('detail-main-img').outerHTML = `<img id="detail-main-img" src="${listing.photos[index]}" alt="${listing.nombre}">`;
+  document.querySelectorAll('.detail-thumbs img').forEach((img,i) => img.classList.toggle('active', i===index));
+}
+
+function openDetailModal(id){
+  const listing = allListings.find(l => l.id === id);
+  if (!listing) return;
+  renderDetail(listing);
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+function closeDetailModal(){
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+
+/* =========================================================================
+   PUBLISH WIZARD
+   ========================================================================= */
+const WIZARD_STEPS = ['Tu negocio', 'Fotos', 'Cifras', 'Contacto', 'Plan', 'Revisión'];
+let wizardStep = 0;
+let formData = emptyFormData();
+let uploadedPhotos = [];
+
+function emptyFormData(){
+  return {
+    nombre: '', categoria: '', provincia: '', otraProvincia: '', zona: '', anos: '', empleados: '',
+    descripcion: '', facturacion: '', precio: '', motivo: '',
+    incluye: [], contactoNombre: '', telefono: '', email: '', pref: 'WhatsApp', plan: ''
+  };
+}
+
+function resetFormFields(){
+  formData = emptyFormData();
+  uploadedPhotos = [];
+  wizardStep = 0;
+}
+
+function openPublishModal(){
+  resetFormFields();
+  document.getElementById('publish-overlay').classList.add('open');
+  renderWizardStep();
+}
+
+function closePublishModal(){
+  document.getElementById('publish-overlay').classList.remove('open');
+}
+
+function renderWizardProgress(){
+  const el = document.getElementById('wizard-progress');
+  el.innerHTML = WIZARD_STEPS.map((_, i) => {
+    const cls = i < wizardStep ? 'done' : (i === wizardStep ? 'current' : '');
+    return `<span class="${cls}"></span>`;
+  }).join('');
+}
+
+function fieldError(id, msg){
+  return `<div class="error-text" id="err-${id}">${msg}</div>`;
+}
+
+function renderWizardStep(){
+  renderWizardProgress();
+  const content = document.getElementById('wizard-step-content');
+  const backBtn = document.getElementById('wizard-back');
+  const nextBtn = document.getElementById('wizard-next');
+
+  backBtn.style.visibility = wizardStep === 0 ? 'hidden' : 'visible';
+  nextBtn.textContent = wizardStep === WIZARD_STEPS.length - 1 ? 'Publicar' : 'Siguiente';
+
+  switch(wizardStep){
+    case 0: content.innerHTML = stepTuNegocio(); break;
+    case 1: content.innerHTML = stepFotos(); attachPhotoHandlers(); break;
+    case 2: content.innerHTML = stepCifras(); break;
+    case 3: content.innerHTML = stepContacto(); break;
+    case 4: content.innerHTML = stepPlan(); attachPlanHandlers(); break;
+    case 5: content.innerHTML = stepRevision(); break;
+  }
+}
+
+function stepTuNegocio(){
+  return `
+    <h3 style="margin-bottom:16px;">Cuéntanos sobre tu negocio</h3>
+    <div class="field-group" id="fg-nombre">
+      <label>Nombre del negocio</label>
+      <input type="text" id="w-nombre" value="${formData.nombre}" placeholder="Ej. Colmado La Esquina">
+      ${fieldError('nombre', 'Escribe el nombre del negocio')}
+    </div>
+    <div class="field-row">
+      <div class="field-group" id="fg-categoria">
+        <label>Categoría</label>
+        <select id="w-categoria">
+          <option value="">Selecciona...</option>
+          ${Object.entries(CATEGORY_LABELS).map(([k,v]) => `<option value="${k}" ${formData.categoria===k?'selected':''}>${v}</option>`).join('')}
+        </select>
+        ${fieldError('categoria', 'Selecciona una categoría')}
+      </div>
+      <div class="field-group" id="fg-provincia">
+        <label>Provincia</label>
+        <select id="w-provincia" onchange="toggleOtraProvincia()">
+          <option value="">Selecciona...</option>
+          <option value="Distrito Nacional" ${formData.provincia==='Distrito Nacional'?'selected':''}>Distrito Nacional</option>
+          <option value="Santo Domingo" ${formData.provincia==='Santo Domingo'?'selected':''}>Santo Domingo</option>
+          <option value="Santiago" ${formData.provincia==='Santiago'?'selected':''}>Santiago</option>
+          <option value="__otra" ${formData.provincia==='__otra'?'selected':''}>Otra provincia</option>
+        </select>
+        ${fieldError('provincia', 'Selecciona una provincia')}
+      </div>
+    </div>
+    <div class="field-group" id="fg-otraProvincia" style="${formData.provincia==='__otra' ? '' : 'display:none;'}">
+      <label>Nombre de la provincia</label>
+      <input type="text" id="w-otraProvincia" value="${formData.otraProvincia}" placeholder="Ej. La Vega">
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <label>Zona / sector</label>
+        <input type="text" id="w-zona" value="${formData.zona}" placeholder="Ej. Piantini">
+      </div>
+      <div class="field-group">
+        <label>Años operando</label>
+        <input type="number" min="0" id="w-anos" value="${formData.anos}" placeholder="Ej. 5">
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Empleados</label>
+      <input type="number" min="0" id="w-empleados" value="${formData.empleados}" placeholder="Ej. 3">
+    </div>
+    <div class="field-group" id="fg-descripcion">
+      <label>Descripción</label>
+      <textarea id="w-descripcion" rows="4" placeholder="Describe tu negocio, clientela, ubicación y lo que lo hace atractivo...">${formData.descripcion}</textarea>
+      ${fieldError('descripcion', 'Agrega una breve descripción')}
+    </div>
+  `;
+}
+
+function toggleOtraProvincia(){
+  const val = document.getElementById('w-provincia').value;
+  document.getElementById('fg-otraProvincia').style.display = val === '__otra' ? 'block' : 'none';
+}
+
+function stepFotos(){
+  return `
+    <h3 style="margin-bottom:16px;">Fotos del negocio</h3>
+    <p style="color:var(--slate); font-size:13.5px; margin-top:-8px;">Hasta 4 fotos. Se ajustan automáticamente para cargar rápido.</p>
+    <div class="photo-drop" onclick="document.getElementById('w-photo-input').click()">
+      📷 Haz clic para subir fotos (${uploadedPhotos.length}/4)
+    </div>
+    <input type="file" id="w-photo-input" accept="image/*" multiple style="display:none;">
+    <div class="photo-thumbs" id="photo-thumbs">
+      ${uploadedPhotos.map((p,i) => `
+        <div class="photo-thumb">
+          <img src="${p}">
+          <button onclick="removePhoto(${i})">&times;</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function attachPhotoHandlers(){
+  const input = document.getElementById('w-photo-input');
+  if (!input) return;
+  input.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files).slice(0, 4 - uploadedPhotos.length);
+    for (const file of files){
+      try{
+        const dataUrl = await resizeImageToDataUrl(file, 900, 0.8);
+        uploadedPhotos.push(dataUrl);
+      }catch(err){
+        console.warn('No se pudo procesar la imagen', err);
+      }
+    }
+    renderWizardStep();
+  });
+}
+
+function removePhoto(index){
+  uploadedPhotos.splice(index, 1);
+  renderWizardStep();
+}
+
+function resizeImageToDataUrl(file, maxWidth, quality){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function stepCifras(){
+  return `
+    <h3 style="margin-bottom:16px;">Cifras del negocio</h3>
+    <div class="field-row">
+      <div class="field-group" id="fg-facturacion">
+        <label>Facturación mensual (RD$)</label>
+        <input type="number" min="0" id="w-facturacion" value="${formData.facturacion}" placeholder="Ej. 150000">
+        ${fieldError('facturacion', 'Ingresa la facturación mensual')}
+      </div>
+      <div class="field-group" id="fg-precio">
+        <label>Precio de venta (RD$)</label>
+        <input type="number" min="0" id="w-precio" value="${formData.precio}" placeholder="Ej. 1200000">
+        ${fieldError('precio', 'Ingresa el precio de venta')}
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Motivo de venta</label>
+      <textarea id="w-motivo" rows="3" placeholder="Ej. Cambio de ciudad, nuevo proyecto, jubilación...">${formData.motivo}</textarea>
+    </div>
+    <div class="field-group">
+      <label>Qué incluye el traspaso</label>
+      <div class="checkbox-list">
+        ${['Inventario','Equipos','Contrato de alquiler vigente','Permisos y licencias','Personal capacitado'].map(item => `
+          <label><input type="checkbox" value="${item}" class="w-incluye" ${formData.incluye.includes(item)?'checked':''}> ${item}</label>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function stepContacto(){
+  return `
+    <h3 style="margin-bottom:16px;">Información de contacto</h3>
+    <div class="field-group" id="fg-contactoNombre">
+      <label>Nombre de contacto</label>
+      <input type="text" id="w-contactoNombre" value="${formData.contactoNombre}" placeholder="Tu nombre">
+      ${fieldError('contactoNombre', 'Ingresa tu nombre')}
+    </div>
+    <div class="field-row">
+      <div class="field-group" id="fg-telefono">
+        <label>Teléfono</label>
+        <input type="tel" id="w-telefono" value="${formData.telefono}" placeholder="809-555-0100">
+        ${fieldError('telefono', 'Ingresa un teléfono válido')}
+      </div>
+      <div class="field-group" id="fg-email">
+        <label>Correo electrónico</label>
+        <input type="email" id="w-email" value="${formData.email}" placeholder="correo@ejemplo.com">
+        ${fieldError('email', 'Ingresa un correo válido')}
+      </div>
+    </div>
+    <div class="field-group">
+      <label>Preferencia de contacto</label>
+      <select id="w-pref">
+        <option ${formData.pref==='WhatsApp'?'selected':''}>WhatsApp</option>
+        <option ${formData.pref==='Llamada'?'selected':''}>Llamada</option>
+        <option ${formData.pref==='Correo'?'selected':''}>Correo</option>
+      </select>
+    </div>
+  `;
+}
+
+function stepPlan(){
+  return `
+    <h3 style="margin-bottom:16px;">Elige tu plan de publicación</h3>
+    <div class="radio-plan ${formData.plan==='basico'?'selected':''}" data-plan="basico">
+      <div>
+        <div class="plan-name">Básico</div>
+        <div class="plan-desc">2 meses de publicación, aparece en resultados de búsqueda</div>
+      </div>
+      <div class="plan-price">RD$4,000</div>
+    </div>
+    <div class="radio-plan ${formData.plan==='destacado'?'selected':''}" data-plan="destacado">
+      <div>
+        <div class="plan-name">Destacado</div>
+        <div class="plan-desc">2 meses de publicación con posición prioritaria y distintivo "Destacado"</div>
+      </div>
+      <div class="plan-price">RD$7,000</div>
+    </div>
+    <div id="err-plan" class="error-text">Selecciona un plan para continuar</div>
+  `;
+}
+
+function attachPlanHandlers(){
+  document.querySelectorAll('.radio-plan').forEach(el => {
+    el.addEventListener('click', () => {
+      formData.plan = el.dataset.plan;
+      document.querySelectorAll('.radio-plan').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+      const err = document.getElementById('err-plan');
+      if (err) err.style.display = 'none';
+    });
+  });
+}
+
+function buildReceipt(){
+  const provinciaFinal = formData.provincia === '__otra' ? formData.otraProvincia : formData.provincia;
+  const planLabel = formData.plan === 'destacado' ? 'Destacado' : 'Básico';
+  const planPrice = formData.plan === 'destacado' ? 7000 : 4000;
+
+  return `
+    <div class="receipt">
+      <div class="receipt-row"><span class="label">Negocio</span><span class="value">${formData.nombre}</span></div>
+      <div class="receipt-row"><span class="label">Categoría</span><span class="value">${CATEGORY_LABELS[formData.categoria] || '—'}</span></div>
+      <div class="receipt-row"><span class="label">Ubicación</span><span class="value">${provinciaFinal}${formData.zona ? ', ' + formData.zona : ''}</span></div>
+      <div class="receipt-row"><span class="label">Facturación mensual</span><span class="value">${formatRD(formData.facturacion)}</span></div>
+      <div class="receipt-row"><span class="label">Precio de venta</span><span class="value">${formatRD(formData.precio)}</span></div>
+      <div class="receipt-row"><span class="label">Fotos adjuntas</span><span class="value">${uploadedPhotos.length}</span></div>
+      <div class="receipt-row"><span class="label">Contacto</span><span class="value">${formData.contactoNombre} (${formData.pref})</span></div>
+      <div class="receipt-row"><span class="label">Plan</span><span class="value">${planLabel} · 2 meses</span></div>
+      <div class="receipt-total"><span>Total a pagar</span><span class="value">${formatRD(planPrice)}</span></div>
+    </div>
+  `;
+}
+
+function stepRevision(){
+  return `
+    <h3 style="margin-bottom:16px;">Revisa antes de publicar</h3>
+    ${buildReceipt()}
+    <p style="color:var(--slate); font-size:12.5px; margin-top:14px;">Al publicar, tu anuncio quedará visible de inmediato en la sección "Negocios destacados". El cobro del plan se procesará por fuera de este formulario (próximamente vía pasarela de pago).</p>
+  `;
+}
+
+/* ---------- Validation ---------- */
+function setError(id, show){
+  const group = document.getElementById('fg-' + id);
+  if (group) group.classList.toggle('has-error', show);
+  return !show;
+}
+
+function validateStep(){
+  let valid = true;
+  if (wizardStep === 0){
+    formData.nombre = document.getElementById('w-nombre').value.trim();
+    formData.categoria = document.getElementById('w-categoria').value;
+    formData.provincia = document.getElementById('w-provincia').value;
+    formData.otraProvincia = document.getElementById('w-otraProvincia') ? document.getElementById('w-otraProvincia').value.trim() : '';
+    formData.zona = document.getElementById('w-zona').value.trim();
+    formData.anos = document.getElementById('w-anos').value;
+    formData.empleados = document.getElementById('w-empleados').value;
+    formData.descripcion = document.getElementById('w-descripcion').value.trim();
+
+    valid = setError('nombre', !formData.nombre) && valid;
+    valid = setError('categoria', !formData.categoria) && valid;
+    valid = setError('provincia', !formData.provincia || (formData.provincia==='__otra' && !formData.otraProvincia)) && valid;
+    valid = setError('descripcion', !formData.descripcion) && valid;
+  }
+  else if (wizardStep === 2){
+    formData.facturacion = document.getElementById('w-facturacion').value;
+    formData.precio = document.getElementById('w-precio').value;
+    formData.motivo = document.getElementById('w-motivo').value.trim();
+    formData.incluye = Array.from(document.querySelectorAll('.w-incluye:checked')).map(el => el.value);
+
+    valid = setError('facturacion', !formData.facturacion) && valid;
+    valid = setError('precio', !formData.precio) && valid;
+  }
+  else if (wizardStep === 3){
+    formData.contactoNombre = document.getElementById('w-contactoNombre').value.trim();
+    formData.telefono = document.getElementById('w-telefono').value.trim();
+    formData.email = document.getElementById('w-email').value.trim();
+    formData.pref = document.getElementById('w-pref').value;
+
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+    const phoneValid = formData.telefono.replace(/\D/g,'').length >= 10;
+
+    valid = setError('contactoNombre', !formData.contactoNombre) && valid;
+    valid = setError('telefono', !phoneValid) && valid;
+    valid = setError('email', !emailValid) && valid;
+  }
+  else if (wizardStep === 4){
+    if (!formData.plan){
+      document.getElementById('err-plan').style.display = 'block';
+      valid = false;
+    }
+  }
+  return valid;
+}
+
+function wizardNext(){
+  if (!validateStep()) return;
+
+  if (wizardStep === WIZARD_STEPS.length - 1){
+    publishListing();
+    return;
+  }
+  wizardStep++;
+  renderWizardStep();
+}
+
+function wizardBack(){
+  if (wizardStep === 0) return;
+  wizardStep--;
+  renderWizardStep();
+}
+
+function publishListing(){
+  const provinciaFinal = formData.provincia === '__otra' ? formData.otraProvincia : formData.provincia;
+  const listing = {
+    id: 'listing-' + Date.now(),
+    nombre: formData.nombre,
+    categoria: formData.categoria,
+    provincia: provinciaFinal,
+    zona: formData.zona,
+    anos: formData.anos,
+    empleados: formData.empleados,
+    descripcion: formData.descripcion,
+    photos: uploadedPhotos,
+    facturacion: formData.facturacion,
+    precio: formData.precio,
+    motivo: formData.motivo,
+    incluye: formData.incluye,
+    contactoNombre: formData.contactoNombre,
+    telefono: formData.telefono,
+    email: formData.email,
+    pref: formData.pref,
+    plan: formData.plan,
+    publishedAt: Date.now()
+  };
+
+  saveListingToStorage(listing);
+  refreshListings();
+  renderGrid(allListings);
+  closePublishModal();
+  resetFormFields();
+  showToast('¡Tu negocio fue publicado con éxito!');
+}
+
+function showToast(msg){
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3200);
+}
+
+/* ---------- Init ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  refreshListings();
+  renderChips();
+  renderGrid(allListings);
+
+  ['publish-overlay','detail-overlay'].forEach(id => {
+    document.getElementById(id).addEventListener('click', (e) => {
+      if (e.target.id === id){
+        if (id === 'publish-overlay') closePublishModal();
+        else closeDetailModal();
+      }
+    });
+  });
+
+  document.getElementById('f-text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') applyFilters();
+  });
+});
+</script>
+</body>
+</html>
