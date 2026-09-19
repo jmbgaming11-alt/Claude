@@ -422,19 +422,50 @@
 
 <div class="toast" id="toast"></div>
 
-<script>
+<script type="module">
 /* =========================================================================
-   TRASPASO — reference front-end implementation
-   NOTE ON PERSISTENCE: the original prototype used Claude's artifact-only
-   `window.storage` API, which does not exist outside a Claude.ai artifact
-   viewer. This build swaps it for localStorage as a working stand-in so the
-   page actually persists data as a normal static site — it is still a
-   placeholder for the real backend (Postgres/Supabase + API) described in
-   the project README, not a production data store (no sharing across
-   devices/users, no auth, no server-side validation).
+   TRASPASO — real shared backend (Firebase)
+   =========================================================================
+   Listings live in a real, shared Firestore database — every visitor sees
+   the same data, from any device. Photos live in Firebase Storage.
+
+   TO CONNECT YOUR OWN FIREBASE PROJECT:
+   1. Go to https://console.firebase.google.com and open your project.
+   2. Click the gear icon (top left) -> "Project settings".
+   3. Scroll to "Your apps" -> your web app -> copy the firebaseConfig
+      object shown there, and paste its values into firebaseConfig below.
+   4. In the left sidebar under "Build", open "Firestore Database" and
+      "Storage" and make sure both are created (the security rules that
+      belong there were provided separately — paste them into each
+      product's "Rules" tab).
    ========================================================================= */
 
-const STORAGE_KEY = 'traspaso_listings_v1';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import {
+  getFirestore, collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {
+  getStorage, ref, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "PEGA_AQUI_TU_API_KEY",
+  authDomain: "PEGA_AQUI_TU_AUTH_DOMAIN",
+  projectId: "PEGA_AQUI_TU_PROJECT_ID",
+  storageBucket: "PEGA_AQUI_TU_STORAGE_BUCKET",
+  messagingSenderId: "PEGA_AQUI_TU_SENDER_ID",
+  appId: "PEGA_AQUI_TU_APP_ID"
+};
+
+let db, storage, listingsCol;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  listingsCol = collection(db, 'listings');
+} catch (err) {
+  console.error('Firebase no se pudo inicializar', err);
+}
 
 const CATEGORY_LABELS = {
   colmados: 'Colmado',
@@ -454,72 +485,6 @@ const ICONS = {
   otro: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="12" width="36" height="26" rx="3"/><path d="M6 20h36"/><path d="M18 12v-3a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3"/></svg>`
 };
 
-const SAMPLE_LISTINGS = [
-  {
-    id: 'sample-1',
-    nombre: 'Colmado Los Hermanos',
-    categoria: 'colmados',
-    provincia: 'Santo Domingo',
-    zona: 'Los Mina',
-    anos: '8',
-    empleados: '3',
-    descripcion: 'Colmado establecido hace 8 años en esquina de alto flujo peatonal. Clientela fija, buen margen en bebidas y víveres. Se incluye congelador industrial y anaqueles.',
-    photos: [],
-    facturacion: '180000',
-    precio: '1200000',
-    motivo: 'Cambio de ciudad por motivos familiares',
-    incluye: ['Inventario', 'Equipos', 'Contrato de alquiler vigente'],
-    contactoNombre: 'Ramón Peña',
-    telefono: '8095550142',
-    email: 'ramon.pena@example.com',
-    pref: 'WhatsApp',
-    plan: 'destacado',
-    publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 3
-  },
-  {
-    id: 'sample-2',
-    nombre: 'Gimnasio PowerFit',
-    categoria: 'gimnasios',
-    provincia: 'Santiago',
-    zona: 'Los Jardines',
-    anos: '5',
-    empleados: '6',
-    descripcion: 'Gimnasio full-equipment de 5 años, cartera activa de más de 200 socios mensuales. Incluye máquinas de cardio y pesas, área de spinning y oficina administrativa.',
-    photos: [],
-    facturacion: '320000',
-    precio: '2800000',
-    motivo: 'Nuevo proyecto fuera del país',
-    incluye: ['Equipos', 'Permisos y licencias', 'Personal capacitado'],
-    contactoNombre: 'Yolanda Ferreira',
-    telefono: '8295550198',
-    email: 'yolanda.ferreira@example.com',
-    pref: 'Llamada',
-    plan: 'basico',
-    publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 7
-  },
-  {
-    id: 'sample-3',
-    nombre: 'Salón Bella Imagen',
-    categoria: 'salones',
-    provincia: 'Distrito Nacional',
-    zona: 'Piantini',
-    anos: '12',
-    empleados: '4',
-    descripcion: 'Salón de belleza con 12 años de trayectoria en zona de alto poder adquisitivo. Clientela leal y personal capacitado que desea continuar tras el traspaso.',
-    photos: [],
-    facturacion: '150000',
-    precio: '950000',
-    motivo: 'Jubilación de la propietaria',
-    incluye: ['Inventario', 'Equipos', 'Personal capacitado'],
-    contactoNombre: 'Carmen Objío',
-    telefono: '8495550176',
-    email: 'carmen.objio@example.com',
-    pref: 'Correo',
-    plan: 'destacado',
-    publishedAt: Date.now() - 1000 * 60 * 60 * 24 * 1
-  }
-];
-
 let allListings = [];
 let activeChip = '';
 
@@ -528,29 +493,62 @@ function formatRD(n){
   return 'RD$' + num.toLocaleString('es-DO');
 }
 
-function loadPublishedListings(){
+const SAMPLE_SEED = [
+  {
+    nombre: 'Colmado Los Hermanos', categoria: 'colmados', provincia: 'Santo Domingo', zona: 'Los Mina',
+    anos: 8, empleados: 3,
+    descripcion: 'Colmado establecido hace 8 años en esquina de alto flujo peatonal. Clientela fija, buen margen en bebidas y víveres. Se incluye congelador industrial y anaqueles.',
+    photos: [], facturacion: 180000, precio: 1200000, motivo: 'Cambio de ciudad por motivos familiares',
+    incluye: ['Inventario', 'Equipos', 'Contrato de alquiler vigente'], contactoNombre: 'Ramón Peña',
+    telefono: '8095550142', email: 'ramon.pena@example.com', pref: 'WhatsApp', plan: 'destacado'
+  },
+  {
+    nombre: 'Gimnasio PowerFit', categoria: 'gimnasios', provincia: 'Santiago', zona: 'Los Jardines',
+    anos: 5, empleados: 6,
+    descripcion: 'Gimnasio full-equipment de 5 años, cartera activa de más de 200 socios mensuales. Incluye máquinas de cardio y pesas, área de spinning y oficina administrativa.',
+    photos: [], facturacion: 320000, precio: 2800000, motivo: 'Nuevo proyecto fuera del país',
+    incluye: ['Equipos', 'Permisos y licencias', 'Personal capacitado'], contactoNombre: 'Yolanda Ferreira',
+    telefono: '8295550198', email: 'yolanda.ferreira@example.com', pref: 'Llamada', plan: 'basico'
+  },
+  {
+    nombre: 'Salón Bella Imagen', categoria: 'salones', provincia: 'Distrito Nacional', zona: 'Piantini',
+    anos: 12, empleados: 4,
+    descripcion: 'Salón de belleza con 12 años de trayectoria en zona de alto poder adquisitivo. Clientela leal y personal capacitado que desea continuar tras el traspaso.',
+    photos: [], facturacion: 150000, precio: 950000, motivo: 'Jubilación de la propietaria',
+    incluye: ['Inventario', 'Equipos', 'Personal capacitado'], contactoNombre: 'Carmen Objío',
+    telefono: '8495550176', email: 'carmen.objio@example.com', pref: 'Correo', plan: 'destacado'
+  }
+];
+
+async function seedSampleListings(){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }catch(e){
-    console.warn('No se pudo leer listings guardados', e);
-    return [];
+    for (const s of SAMPLE_SEED){
+      await setDoc(doc(listingsCol), { ...s, publishedAt: serverTimestamp() });
+    }
+  }catch(err){
+    console.warn('No se pudieron crear los negocios de ejemplo', err);
   }
 }
 
-function saveListingToStorage(listing){
-  const published = loadPublishedListings();
-  published.push(listing);
-  try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(published));
-  }catch(e){
-    console.warn('No se pudo guardar el listing', e);
-  }
-}
+let didCheckSeed = false;
 
-function refreshListings(){
-  allListings = [...SAMPLE_LISTINGS, ...loadPublishedListings()]
-    .sort((a,b) => b.publishedAt - a.publishedAt);
+function subscribeListings(){
+  if (!db){
+    document.getElementById('listing-grid').innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Falta conectar la base de datos (Firebase). Revisa el bloque firebaseConfig al inicio del código.</div>`;
+    return;
+  }
+  const q = query(listingsCol, orderBy('publishedAt', 'desc'));
+  onSnapshot(q, (snapshot) => {
+    allListings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!didCheckSeed){
+      didCheckSeed = true;
+      if (snapshot.empty) seedSampleListings();
+    }
+    applyFilters();
+  }, (err) => {
+    console.error('No se pudieron cargar los negocios', err);
+    document.getElementById('listing-grid').innerHTML = `<div class="empty-state" style="grid-column:1/-1;">No pudimos cargar los negocios en este momento. Verifica tu conexión e intenta de nuevo.</div>`;
+  });
 }
 
 /* ---------- Chips ---------- */
@@ -732,6 +730,7 @@ function emptyFormData(){
 }
 
 function resetFormFields(){
+  uploadedPhotos.forEach(p => URL.revokeObjectURL(p.previewUrl));
   formData = emptyFormData();
   uploadedPhotos = [];
   wizardStep = 0;
@@ -849,7 +848,7 @@ function stepFotos(){
     <div class="photo-thumbs" id="photo-thumbs">
       ${uploadedPhotos.map((p,i) => `
         <div class="photo-thumb">
-          <img src="${p}">
+          <img src="${p.previewUrl}">
           <button onclick="removePhoto(${i})">&times;</button>
         </div>
       `).join('')}
@@ -864,8 +863,8 @@ function attachPhotoHandlers(){
     const files = Array.from(e.target.files).slice(0, 4 - uploadedPhotos.length);
     for (const file of files){
       try{
-        const dataUrl = await resizeImageToDataUrl(file, 900, 0.8);
-        uploadedPhotos.push(dataUrl);
+        const blob = await resizeImageToBlob(file, 900, 0.8);
+        uploadedPhotos.push({ blob, previewUrl: URL.createObjectURL(blob) });
       }catch(err){
         console.warn('No se pudo procesar la imagen', err);
       }
@@ -875,11 +874,12 @@ function attachPhotoHandlers(){
 }
 
 function removePhoto(index){
-  uploadedPhotos.splice(index, 1);
+  const [removed] = uploadedPhotos.splice(index, 1);
+  if (removed) URL.revokeObjectURL(removed.previewUrl);
   renderWizardStep();
 }
 
-function resizeImageToDataUrl(file, maxWidth, quality){
+function resizeImageToBlob(file, maxWidth, quality){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -891,7 +891,10 @@ function resizeImageToDataUrl(file, maxWidth, quality){
         canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        canvas.toBlob(
+          blob => blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen')),
+          'image/jpeg', quality
+        );
       };
       img.onerror = reject;
       img.src = e.target.result;
@@ -1078,11 +1081,11 @@ function validateStep(){
   return valid;
 }
 
-function wizardNext(){
+async function wizardNext(){
   if (!validateStep()) return;
 
   if (wizardStep === WIZARD_STEPS.length - 1){
-    publishListing();
+    await publishListing();
     return;
   }
   wizardStep++;
@@ -1095,36 +1098,57 @@ function wizardBack(){
   renderWizardStep();
 }
 
-function publishListing(){
-  const provinciaFinal = formData.provincia === '__otra' ? formData.otraProvincia : formData.provincia;
-  const listing = {
-    id: 'listing-' + Date.now(),
-    nombre: formData.nombre,
-    categoria: formData.categoria,
-    provincia: provinciaFinal,
-    zona: formData.zona,
-    anos: formData.anos,
-    empleados: formData.empleados,
-    descripcion: formData.descripcion,
-    photos: uploadedPhotos,
-    facturacion: formData.facturacion,
-    precio: formData.precio,
-    motivo: formData.motivo,
-    incluye: formData.incluye,
-    contactoNombre: formData.contactoNombre,
-    telefono: formData.telefono,
-    email: formData.email,
-    pref: formData.pref,
-    plan: formData.plan,
-    publishedAt: Date.now()
-  };
+async function publishListing(){
+  const nextBtn = document.getElementById('wizard-next');
+  const backBtn = document.getElementById('wizard-back');
+  const originalLabel = nextBtn.textContent;
+  nextBtn.disabled = true;
+  backBtn.disabled = true;
+  nextBtn.textContent = 'Publicando...';
 
-  saveListingToStorage(listing);
-  refreshListings();
-  renderGrid(allListings);
-  closePublishModal();
-  resetFormFields();
-  showToast('¡Tu negocio fue publicado con éxito!');
+  try{
+    const provinciaFinal = formData.provincia === '__otra' ? formData.otraProvincia : formData.provincia;
+    const listingRef = doc(listingsCol);
+
+    const photoUrls = [];
+    for (let i = 0; i < uploadedPhotos.length; i++){
+      const photoRef = ref(storage, `listings/${listingRef.id}/photo${i}.jpg`);
+      await uploadBytes(photoRef, uploadedPhotos[i].blob, { contentType: 'image/jpeg' });
+      photoUrls.push(await getDownloadURL(photoRef));
+    }
+
+    await setDoc(listingRef, {
+      nombre: formData.nombre,
+      categoria: formData.categoria,
+      provincia: provinciaFinal,
+      zona: formData.zona,
+      anos: Number(formData.anos) || 0,
+      empleados: Number(formData.empleados) || 0,
+      descripcion: formData.descripcion,
+      photos: photoUrls,
+      facturacion: Number(formData.facturacion) || 0,
+      precio: Number(formData.precio) || 0,
+      motivo: formData.motivo,
+      incluye: formData.incluye,
+      contactoNombre: formData.contactoNombre,
+      telefono: formData.telefono,
+      email: formData.email,
+      pref: formData.pref,
+      plan: formData.plan,
+      publishedAt: serverTimestamp()
+    });
+
+    closePublishModal();
+    resetFormFields();
+    showToast('¡Tu negocio fue publicado con éxito!');
+  }catch(err){
+    console.error('No se pudo publicar el negocio', err);
+    alert('No pudimos publicar tu negocio. Verifica tu conexión e intenta de nuevo.');
+  }finally{
+    nextBtn.disabled = false;
+    backBtn.disabled = false;
+    nextBtn.textContent = originalLabel;
+  }
 }
 
 function showToast(msg){
@@ -1135,23 +1159,29 @@ function showToast(msg){
 }
 
 /* ---------- Init ---------- */
-document.addEventListener('DOMContentLoaded', () => {
-  refreshListings();
-  renderChips();
-  renderGrid(allListings);
+subscribeListings();
+renderChips();
 
-  ['publish-overlay','detail-overlay'].forEach(id => {
-    document.getElementById(id).addEventListener('click', (e) => {
-      if (e.target.id === id){
-        if (id === 'publish-overlay') closePublishModal();
-        else closeDetailModal();
-      }
-    });
+['publish-overlay','detail-overlay'].forEach(id => {
+  document.getElementById(id).addEventListener('click', (e) => {
+    if (e.target.id === id){
+      if (id === 'publish-overlay') closePublishModal();
+      else closeDetailModal();
+    }
   });
+});
 
-  document.getElementById('f-text').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') applyFilters();
-  });
+document.getElementById('f-text').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') applyFilters();
+});
+
+/* Module scripts don't leak declarations onto window, but the HTML above
+   calls these functions via inline onclick/onchange attributes — expose
+   just those. */
+Object.assign(window, {
+  openPublishModal, closePublishModal, applyFilters, toggleChip,
+  openDetailModal, closeDetailModal, wizardNext, wizardBack,
+  toggleOtraProvincia, removePhoto, switchDetailPhoto
 });
 </script>
 </body>
