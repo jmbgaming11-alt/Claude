@@ -130,6 +130,13 @@
     position:absolute; top:10px; left:10px; font-size:11px; font-weight:700; letter-spacing:.04em;
     text-transform:uppercase; padding:4px 9px; border-radius:999px; background:var(--rust); color:#fff;
   }
+  .fav-btn{
+    position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:50%;
+    background:rgba(255,255,255,.9); border:1px solid var(--line); font-size:16px; line-height:1;
+    display:flex; align-items:center; justify-content:center; color:var(--slate); padding:0;
+  }
+  .fav-btn.active{ color:var(--rust); border-color:var(--rust); }
+  .detail-fav-btn.active{ border-color:var(--rust); color:var(--rust); }
   .card-body{ padding:16px 18px 18px; flex:1; display:flex; flex-direction:column; }
   .card-body h3{ font-size:19px; margin-bottom:4px; }
   .card-meta{ font-size:13px; color:var(--slate); margin-bottom:10px; }
@@ -258,6 +265,7 @@
     <nav class="nav-links">
       <a href="#como-funciona" class="navlink hide-mobile">Cómo funciona</a>
       <a href="#negocios" class="navlink hide-mobile">Negocios en venta</a>
+      <a href="#" class="navlink hide-mobile" onclick="openMisPublicacionesModal(); return false;">Mis publicaciones</a>
       <button class="btn btn-primary" onclick="openPublishModal()">Publicar mi negocio</button>
     </nav>
   </div>
@@ -420,6 +428,17 @@
   </div>
 </div>
 
+<!-- ============ MIS PUBLICACIONES MODAL ============ -->
+<div class="modal-overlay" id="mispub-overlay">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <h2>Mis publicaciones</h2>
+      <button class="modal-close" onclick="closeMisPublicacionesModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="mispub-body"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -442,11 +461,15 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
-  getFirestore, collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp
+  getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot,
+  query, where, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import {
   getStorage, ref, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
+import {
+  getAuth, signInAnonymously, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "PEGA_AQUI_TU_API_KEY",
@@ -457,14 +480,31 @@ const firebaseConfig = {
   appId: "PEGA_AQUI_TU_APP_ID"
 };
 
-let db, storage, listingsCol;
+let db, storage, auth, listingsCol;
 try {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   storage = getStorage(app);
+  auth = getAuth(app);
   listingsCol = collection(db, 'listings');
 } catch (err) {
   console.error('Firebase no se pudo inicializar', err);
+}
+
+/* Every visitor gets a silent, invisible "anonymous" identity — no login
+   screen, no password. It's what lets a seller pause/reactivate their own
+   listing later from the same browser, without us building real accounts. */
+let currentUid = null;
+let resolveAuthReady;
+const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
+if (auth){
+  onAuthStateChanged(auth, (user) => {
+    if (user){
+      currentUid = user.uid;
+      resolveAuthReady(user.uid);
+    }
+  });
+  signInAnonymously(auth).catch(err => console.error('No se pudo iniciar sesión anónima', err));
 }
 
 const CATEGORY_LABELS = {
@@ -487,10 +527,44 @@ const ICONS = {
 
 let allListings = [];
 let activeChip = '';
+let showOnlyFavorites = false;
 
 function formatRD(n){
   const num = Number(n) || 0;
   return 'RD$' + num.toLocaleString('es-DO');
+}
+
+/* ---------- Favorites (per-browser, no account needed) ---------- */
+const FAVORITES_KEY = 'traspaso_favoritos';
+
+function getFavorites(){
+  try{ return JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+
+function isFavorite(id){
+  return getFavorites().includes(id);
+}
+
+function toggleFavorite(id){
+  let favs = getFavorites();
+  favs = favs.includes(id) ? favs.filter(f => f !== id) : [...favs, id];
+  try{ localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs)); }catch(e){}
+
+  applyFilters();
+
+  const detailBtn = document.getElementById('detail-fav-btn');
+  if (detailBtn && detailBtn.dataset.id === id){
+    const fav = favs.includes(id);
+    detailBtn.textContent = fav ? '♥ Guardado' : '♡ Guardar';
+    detailBtn.classList.toggle('active', fav);
+  }
+}
+
+function toggleFavoritesFilter(){
+  showOnlyFavorites = !showOnlyFavorites;
+  renderChips();
+  applyFilters();
 }
 
 const SAMPLE_SEED = [
@@ -499,31 +573,37 @@ const SAMPLE_SEED = [
     anos: 8, empleados: 3,
     descripcion: 'Colmado establecido hace 8 años en esquina de alto flujo peatonal. Clientela fija, buen margen en bebidas y víveres. Se incluye congelador industrial y anaqueles.',
     photos: [], facturacion: 180000, precio: 1200000, motivo: 'Cambio de ciudad por motivos familiares',
-    incluye: ['Inventario', 'Equipos', 'Contrato de alquiler vigente'], contactoNombre: 'Ramón Peña',
-    telefono: '8095550142', email: 'ramon.pena@example.com', pref: 'WhatsApp', plan: 'destacado'
+    incluye: ['Inventario', 'Equipos', 'Contrato de alquiler vigente'], plan: 'destacado',
+    contacto: { contactoNombre: 'Ramón Peña', telefono: '8095550142', email: 'ramon.pena@example.com', pref: 'WhatsApp' }
   },
   {
     nombre: 'Gimnasio PowerFit', categoria: 'gimnasios', provincia: 'Santiago', zona: 'Los Jardines',
     anos: 5, empleados: 6,
     descripcion: 'Gimnasio full-equipment de 5 años, cartera activa de más de 200 socios mensuales. Incluye máquinas de cardio y pesas, área de spinning y oficina administrativa.',
     photos: [], facturacion: 320000, precio: 2800000, motivo: 'Nuevo proyecto fuera del país',
-    incluye: ['Equipos', 'Permisos y licencias', 'Personal capacitado'], contactoNombre: 'Yolanda Ferreira',
-    telefono: '8295550198', email: 'yolanda.ferreira@example.com', pref: 'Llamada', plan: 'basico'
+    incluye: ['Equipos', 'Permisos y licencias', 'Personal capacitado'], plan: 'basico',
+    contacto: { contactoNombre: 'Yolanda Ferreira', telefono: '8295550198', email: 'yolanda.ferreira@example.com', pref: 'Llamada' }
   },
   {
     nombre: 'Salón Bella Imagen', categoria: 'salones', provincia: 'Distrito Nacional', zona: 'Piantini',
     anos: 12, empleados: 4,
     descripcion: 'Salón de belleza con 12 años de trayectoria en zona de alto poder adquisitivo. Clientela leal y personal capacitado que desea continuar tras el traspaso.',
     photos: [], facturacion: 150000, precio: 950000, motivo: 'Jubilación de la propietaria',
-    incluye: ['Inventario', 'Equipos', 'Personal capacitado'], contactoNombre: 'Carmen Objío',
-    telefono: '8495550176', email: 'carmen.objio@example.com', pref: 'Correo', plan: 'destacado'
+    incluye: ['Inventario', 'Equipos', 'Personal capacitado'], plan: 'destacado',
+    contacto: { contactoNombre: 'Carmen Objío', telefono: '8495550176', email: 'carmen.objio@example.com', pref: 'Correo' }
   }
 ];
 
 async function seedSampleListings(){
   try{
+    const uid = await authReady;
     for (const s of SAMPLE_SEED){
-      await setDoc(doc(listingsCol), { ...s, publishedAt: serverTimestamp() });
+      const { contacto, ...publicFields } = s;
+      const listingRef = doc(listingsCol);
+      await setDoc(listingRef, {
+        ...publicFields, ownerId: uid, activo: true, interesados: 0, publishedAt: serverTimestamp()
+      });
+      await setDoc(doc(db, 'listings', listingRef.id, 'private', 'contact'), contacto);
     }
   }catch(err){
     console.warn('No se pudieron crear los negocios de ejemplo', err);
@@ -537,9 +617,11 @@ function subscribeListings(){
     document.getElementById('listing-grid').innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Falta conectar la base de datos (Firebase). Revisa el bloque firebaseConfig al inicio del código.</div>`;
     return;
   }
-  const q = query(listingsCol, orderBy('publishedAt', 'desc'));
+  const q = query(listingsCol, where('activo', '==', true));
   onSnapshot(q, (snapshot) => {
-    allListings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    allListings = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.publishedAt?.toMillis?.() || 0) - (a.publishedAt?.toMillis?.() || 0));
     if (!didCheckSeed){
       didCheckSeed = true;
       if (snapshot.empty) seedSampleListings();
@@ -559,7 +641,9 @@ function renderChips(){
     <button class="chip ${activeChip===c ? 'active' : ''}" data-cat="${c}" onclick="toggleChip('${c}')">
       ${ICONS[c]} ${CATEGORY_LABELS[c]}
     </button>
-  `).join('');
+  `).join('') + `
+    <button class="chip ${showOnlyFavorites ? 'active' : ''}" onclick="toggleFavoritesFilter()">♥ Mis favoritos</button>
+  `;
 }
 
 function toggleChip(cat){
@@ -597,6 +681,7 @@ function applyFilters(){
       const hay = `${l.nombre} ${l.zona} ${l.descripcion}`.toLowerCase();
       if (!hay.includes(text)) return false;
     }
+    if (showOnlyFavorites && !isFavorite(l.id)) return false;
     return true;
   });
 
@@ -612,10 +697,13 @@ function addListingCard(listing){
   const planBadge = listing.plan === 'destacado'
     ? `<span class="badge-plan">Destacado</span>` : '';
 
+  const fav = isFavorite(listing.id);
+
   return `
     <div class="card">
       <div class="card-media">
         ${planBadge}
+        <button class="fav-btn ${fav ? 'active' : ''}" onclick="toggleFavorite('${listing.id}')" title="Guardar en favoritos">${fav ? '♥' : '♡'}</button>
         ${cover}
       </div>
       <div class="card-body">
@@ -660,10 +748,7 @@ function renderDetail(listing){
 
   const incluyeList = (listing.incluye || []).map(i => `<li>${i}</li>`).join('') || '<li>No especificado</li>';
 
-  const phoneDigits = (listing.telefono || '').replace(/\D/g,'');
-  const waLink = `https://wa.me/1${phoneDigits}?text=${encodeURIComponent('Hola, vi tu negocio "' + listing.nombre + '" en Traspaso y me interesa.')}`;
-  const telLink = `tel:+1${phoneDigits}`;
-  const mailLink = `mailto:${listing.email}?subject=${encodeURIComponent('Interés en ' + listing.nombre + ' — Traspaso')}`;
+  const fav = isFavorite(listing.id);
 
   document.getElementById('detail-title').textContent = listing.nombre;
   document.getElementById('detail-body').innerHTML = `
@@ -672,6 +757,7 @@ function renderDetail(listing){
       ${thumbs}
     </div>
     <div class="card-meta">${CATEGORY_LABELS[listing.categoria] || 'Otro'} · ${listing.provincia}${listing.zona ? ', ' + listing.zona : ''} · ${listing.anos || '?'} años operando</div>
+    <button class="btn btn-ghost detail-fav-btn ${fav ? 'active' : ''}" id="detail-fav-btn" data-id="${listing.id}" onclick="toggleFavorite('${listing.id}')" style="margin-top:10px;">${fav ? '♥ Guardado' : '♡ Guardar'}</button>
     <p style="color:var(--ink-soft); margin-top:12px;">${listing.descripcion || ''}</p>
 
     <div class="detail-stats">
@@ -686,12 +772,38 @@ function renderDetail(listing){
     <h3 style="font-size:16px;">Incluye en el traspaso</h3>
     <ul style="color:var(--ink-soft); font-size:14px; margin:0 0 10px; padding-left:20px;">${incluyeList}</ul>
 
-    <div class="contact-actions">
+    <div class="contact-actions" id="contact-actions">
+      <button class="btn btn-primary" id="request-contact-btn" onclick="requestContact('${listing.id}')">Solicitar información de contacto</button>
+    </div>
+  `;
+}
+
+async function requestContact(id){
+  const btn = document.getElementById('request-contact-btn');
+  if (btn){ btn.disabled = true; btn.textContent = 'Cargando...'; }
+  try{
+    const snap = await getDoc(doc(db, 'listings', id, 'private', 'contact'));
+    if (!snap.exists()) throw new Error('sin datos de contacto');
+    const c = snap.data();
+    const listing = allListings.find(l => l.id === id);
+    const nombre = listing ? listing.nombre : 'este negocio';
+    const phoneDigits = (c.telefono || '').replace(/\D/g,'');
+    const waLink = `https://wa.me/1${phoneDigits}?text=${encodeURIComponent('Hola, vi tu negocio "' + nombre + '" en Traspaso y me interesa.')}`;
+    const telLink = `tel:+1${phoneDigits}`;
+    const mailLink = `mailto:${c.email}?subject=${encodeURIComponent('Interés en ' + nombre + ' — Traspaso')}`;
+
+    document.getElementById('contact-actions').innerHTML = `
       <a class="btn btn-primary" href="${waLink}" target="_blank" rel="noopener">WhatsApp</a>
       <a class="btn btn-outline" href="${telLink}">Llamar</a>
       <a class="btn btn-ghost" href="${mailLink}">Correo</a>
-    </div>
-  `;
+    `;
+
+    updateDoc(doc(listingsCol, id), { interesados: increment(1) }).catch(() => {});
+  }catch(err){
+    console.error('No se pudo obtener el contacto', err);
+    if (btn){ btn.disabled = false; btn.textContent = 'Solicitar información de contacto'; }
+    alert('No pudimos cargar la información de contacto. Intenta de nuevo.');
+  }
 }
 
 function switchDetailPhoto(id, index){
@@ -711,6 +823,58 @@ function openDetailModal(id){
 
 function closeDetailModal(){
   document.getElementById('detail-overlay').classList.remove('open');
+}
+
+/* ---------- Mis publicaciones (device-based, no login) ---------- */
+function statusLabel(activo){
+  return activo ? 'Activo' : 'Pausado';
+}
+
+async function openMisPublicacionesModal(){
+  document.getElementById('mispub-overlay').classList.add('open');
+  document.getElementById('mispub-body').innerHTML = `<p style="color:var(--slate);">Cargando...</p>`;
+  try{
+    const uid = await authReady;
+    const q = query(listingsCol, where('ownerId', '==', uid));
+    const snap = await getDocs(q);
+    const mine = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.publishedAt?.toMillis?.() || 0) - (a.publishedAt?.toMillis?.() || 0));
+    renderMisPublicaciones(mine);
+  }catch(err){
+    console.error('No se pudieron cargar tus publicaciones', err);
+    document.getElementById('mispub-body').innerHTML = `<p style="color:var(--slate);">No pudimos cargar tus publicaciones. Intenta de nuevo.</p>`;
+  }
+}
+
+function closeMisPublicacionesModal(){
+  document.getElementById('mispub-overlay').classList.remove('open');
+}
+
+function renderMisPublicaciones(mine){
+  const body = document.getElementById('mispub-body');
+  if (!mine.length){
+    body.innerHTML = `<p style="color:var(--slate);">Todavía no has publicado ningún negocio desde este navegador. Nota: solo puedes administrar tus publicaciones desde el mismo navegador donde las creaste.</p>`;
+    return;
+  }
+  body.innerHTML = mine.map(l => `
+    <div class="receipt-row">
+      <span class="label">${l.nombre} — ${formatRD(l.precio)} <span style="color:var(--slate);">(${statusLabel(l.activo)})</span></span>
+      <button class="btn btn-ghost" style="padding:6px 14px; font-size:13px;" onclick="toggleActivo('${l.id}', ${!l.activo})">
+        ${l.activo ? 'Pausar' : 'Reactivar'}
+      </button>
+    </div>
+  `).join('');
+}
+
+async function toggleActivo(id, newValue){
+  try{
+    await updateDoc(doc(listingsCol, id), { activo: newValue });
+    openMisPublicacionesModal();
+  }catch(err){
+    console.error('No se pudo actualizar la publicación', err);
+    alert('No pudimos actualizar tu publicación. Intenta de nuevo.');
+  }
 }
 
 /* =========================================================================
@@ -1022,7 +1186,8 @@ function stepRevision(){
   return `
     <h3 style="margin-bottom:16px;">Revisa antes de publicar</h3>
     ${buildReceipt()}
-    <p style="color:var(--slate); font-size:12.5px; margin-top:14px;">Al publicar, tu anuncio quedará visible de inmediato en la sección "Negocios destacados". El cobro del plan se procesará por fuera de este formulario (próximamente vía pasarela de pago).</p>
+    <p style="color:var(--slate); font-size:12.5px; margin-top:14px;">Al publicar, tu anuncio quedará visible de inmediato en la sección "Negocios destacados". Tu teléfono y correo solo se muestran a compradores que soliciten información — no aparecen en el anuncio directamente. El cobro del plan se procesará por fuera de este formulario (próximamente vía pasarela de pago).</p>
+    <p style="color:var(--slate); font-size:12.5px;">Podrás pausar o reactivar este anuncio luego desde "Mis publicaciones", en este mismo navegador.</p>
   `;
 }
 
@@ -1107,6 +1272,7 @@ async function publishListing(){
   nextBtn.textContent = 'Publicando...';
 
   try{
+    const uid = await authReady;
     const provinciaFinal = formData.provincia === '__otra' ? formData.otraProvincia : formData.provincia;
     const listingRef = doc(listingsCol);
 
@@ -1130,12 +1296,21 @@ async function publishListing(){
       precio: Number(formData.precio) || 0,
       motivo: formData.motivo,
       incluye: formData.incluye,
+      plan: formData.plan,
+      ownerId: uid,
+      activo: true,
+      interesados: 0,
+      publishedAt: serverTimestamp()
+    });
+
+    // Written as a second step, after the listing above exists, so the
+    // security rules can confirm this browser owns that listing before
+    // letting it attach contact info.
+    await setDoc(doc(db, 'listings', listingRef.id, 'private', 'contact'), {
       contactoNombre: formData.contactoNombre,
       telefono: formData.telefono,
       email: formData.email,
-      pref: formData.pref,
-      plan: formData.plan,
-      publishedAt: serverTimestamp()
+      pref: formData.pref
     });
 
     closePublishModal();
@@ -1162,12 +1337,14 @@ function showToast(msg){
 subscribeListings();
 renderChips();
 
-['publish-overlay','detail-overlay'].forEach(id => {
+const overlayClosers = {
+  'publish-overlay': closePublishModal,
+  'detail-overlay': closeDetailModal,
+  'mispub-overlay': closeMisPublicacionesModal
+};
+Object.entries(overlayClosers).forEach(([id, close]) => {
   document.getElementById(id).addEventListener('click', (e) => {
-    if (e.target.id === id){
-      if (id === 'publish-overlay') closePublishModal();
-      else closeDetailModal();
-    }
+    if (e.target.id === id) close();
   });
 });
 
@@ -1181,7 +1358,9 @@ document.getElementById('f-text').addEventListener('keydown', (e) => {
 Object.assign(window, {
   openPublishModal, closePublishModal, applyFilters, toggleChip,
   openDetailModal, closeDetailModal, wizardNext, wizardBack,
-  toggleOtraProvincia, removePhoto, switchDetailPhoto
+  toggleOtraProvincia, removePhoto, switchDetailPhoto,
+  toggleFavorite, toggleFavoritesFilter, requestContact,
+  openMisPublicacionesModal, closeMisPublicacionesModal, toggleActivo
 });
 </script>
 </body>
