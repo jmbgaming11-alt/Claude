@@ -441,7 +441,17 @@
 
 <div class="toast" id="toast"></div>
 
-<script type="module">
+<!-- Firebase (classic/"compat" build): plain global scripts, not ES modules.
+     Modern module-style Firebase code (`type="module"` + `import`) is
+     blocked by the browser when this page is opened by double-clicking the
+     file instead of visiting it as a real web address — this build avoids
+     that entirely so it works either way. -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+<script>
 /* =========================================================================
    TRASPASO — real shared backend (Firebase)
    =========================================================================
@@ -459,18 +469,6 @@
       product's "Rules" tab).
    ========================================================================= */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import {
-  getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot,
-  query, where, serverTimestamp, increment
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import {
-  getStorage, ref, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
-import {
-  getAuth, signInAnonymously, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyC7pPXWmwDPvIEjD5kcHGI2JDDn6NrCZLM",
   authDomain: "traspaso-8398f.firebaseapp.com",
@@ -482,11 +480,11 @@ const firebaseConfig = {
 
 let db, storage, auth, listingsCol;
 try {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  storage = getStorage(app);
-  auth = getAuth(app);
-  listingsCol = collection(db, 'listings');
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  storage = firebase.storage();
+  auth = firebase.auth();
+  listingsCol = db.collection('listings');
 } catch (err) {
   console.error('Firebase no se pudo inicializar', err);
 }
@@ -498,13 +496,13 @@ let currentUid = null;
 let resolveAuthReady;
 const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
 if (auth){
-  onAuthStateChanged(auth, (user) => {
+  auth.onAuthStateChanged((user) => {
     if (user){
       currentUid = user.uid;
       resolveAuthReady(user.uid);
     }
   });
-  signInAnonymously(auth).catch(err => console.error('No se pudo iniciar sesión anónima', err));
+  auth.signInAnonymously().catch(err => console.error('No se pudo iniciar sesión anónima', err));
 }
 
 const CATEGORY_LABELS = {
@@ -599,11 +597,12 @@ async function seedSampleListings(){
     const uid = await authReady;
     for (const s of SAMPLE_SEED){
       const { contacto, ...publicFields } = s;
-      const listingRef = doc(listingsCol);
-      await setDoc(listingRef, {
-        ...publicFields, ownerId: uid, activo: true, interesados: 0, publishedAt: serverTimestamp()
+      const listingRef = listingsCol.doc();
+      await listingRef.set({
+        ...publicFields, ownerId: uid, activo: true, interesados: 0,
+        publishedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-      await setDoc(doc(db, 'listings', listingRef.id, 'private', 'contact'), contacto);
+      await listingRef.collection('private').doc('contact').set(contacto);
     }
   }catch(err){
     console.warn('No se pudieron crear los negocios de ejemplo', err);
@@ -617,8 +616,7 @@ function subscribeListings(){
     document.getElementById('listing-grid').innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Falta conectar la base de datos (Firebase). Revisa el bloque firebaseConfig al inicio del código.</div>`;
     return;
   }
-  const q = query(listingsCol, where('activo', '==', true));
-  onSnapshot(q, (snapshot) => {
+  listingsCol.where('activo', '==', true).onSnapshot((snapshot) => {
     allListings = snapshot.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (b.publishedAt?.toMillis?.() || 0) - (a.publishedAt?.toMillis?.() || 0));
@@ -782,8 +780,8 @@ async function requestContact(id){
   const btn = document.getElementById('request-contact-btn');
   if (btn){ btn.disabled = true; btn.textContent = 'Cargando...'; }
   try{
-    const snap = await getDoc(doc(db, 'listings', id, 'private', 'contact'));
-    if (!snap.exists()) throw new Error('sin datos de contacto');
+    const snap = await listingsCol.doc(id).collection('private').doc('contact').get();
+    if (!snap.exists) throw new Error('sin datos de contacto');
     const c = snap.data();
     const listing = allListings.find(l => l.id === id);
     const nombre = listing ? listing.nombre : 'este negocio';
@@ -798,7 +796,7 @@ async function requestContact(id){
       <a class="btn btn-ghost" href="${mailLink}">Correo</a>
     `;
 
-    updateDoc(doc(listingsCol, id), { interesados: increment(1) }).catch(() => {});
+    listingsCol.doc(id).update({ interesados: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
   }catch(err){
     console.error('No se pudo obtener el contacto', err);
     if (btn){ btn.disabled = false; btn.textContent = 'Solicitar información de contacto'; }
@@ -835,8 +833,7 @@ async function openMisPublicacionesModal(){
   document.getElementById('mispub-body').innerHTML = `<p style="color:var(--slate);">Cargando...</p>`;
   try{
     const uid = await authReady;
-    const q = query(listingsCol, where('ownerId', '==', uid));
-    const snap = await getDocs(q);
+    const snap = await listingsCol.where('ownerId', '==', uid).get();
     const mine = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (b.publishedAt?.toMillis?.() || 0) - (a.publishedAt?.toMillis?.() || 0));
@@ -869,7 +866,7 @@ function renderMisPublicaciones(mine){
 
 async function toggleActivo(id, newValue){
   try{
-    await updateDoc(doc(listingsCol, id), { activo: newValue });
+    await listingsCol.doc(id).update({ activo: newValue });
     openMisPublicacionesModal();
   }catch(err){
     console.error('No se pudo actualizar la publicación', err);
@@ -1274,16 +1271,16 @@ async function publishListing(){
   try{
     const uid = await authReady;
     const provinciaFinal = formData.provincia === '__otra' ? formData.otraProvincia : formData.provincia;
-    const listingRef = doc(listingsCol);
+    const listingRef = listingsCol.doc();
 
     const photoUrls = [];
     for (let i = 0; i < uploadedPhotos.length; i++){
-      const photoRef = ref(storage, `listings/${listingRef.id}/photo${i}.jpg`);
-      await uploadBytes(photoRef, uploadedPhotos[i].blob, { contentType: 'image/jpeg' });
-      photoUrls.push(await getDownloadURL(photoRef));
+      const photoRef = storage.ref(`listings/${listingRef.id}/photo${i}.jpg`);
+      await photoRef.put(uploadedPhotos[i].blob, { contentType: 'image/jpeg' });
+      photoUrls.push(await photoRef.getDownloadURL());
     }
 
-    await setDoc(listingRef, {
+    await listingRef.set({
       nombre: formData.nombre,
       categoria: formData.categoria,
       provincia: provinciaFinal,
@@ -1300,13 +1297,13 @@ async function publishListing(){
       ownerId: uid,
       activo: true,
       interesados: 0,
-      publishedAt: serverTimestamp()
+      publishedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
     // Written as a second step, after the listing above exists, so the
     // security rules can confirm this browser owns that listing before
     // letting it attach contact info.
-    await setDoc(doc(db, 'listings', listingRef.id, 'private', 'contact'), {
+    await listingRef.collection('private').doc('contact').set({
       contactoNombre: formData.contactoNombre,
       telefono: formData.telefono,
       email: formData.email,
@@ -1350,17 +1347,6 @@ Object.entries(overlayClosers).forEach(([id, close]) => {
 
 document.getElementById('f-text').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') applyFilters();
-});
-
-/* Module scripts don't leak declarations onto window, but the HTML above
-   calls these functions via inline onclick/onchange attributes — expose
-   just those. */
-Object.assign(window, {
-  openPublishModal, closePublishModal, applyFilters, toggleChip,
-  openDetailModal, closeDetailModal, wizardNext, wizardBack,
-  toggleOtraProvincia, removePhoto, switchDetailPhoto,
-  toggleFavorite, toggleFavoritesFilter, requestContact,
-  openMisPublicacionesModal, closeMisPublicacionesModal, toggleActivo
 });
 </script>
 </body>
